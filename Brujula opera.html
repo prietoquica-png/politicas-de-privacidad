@@ -1,0 +1,1698 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d2b24" />
+  <meta name="description" content="PWA para ayudarte a dejar de fumar: registra cigarrillos, horarios, gastos, antojos y progreso. Funciona offline." />
+  <title>Brújula — Dejar de Fumar (PWA)</title>
+
+  <!-- PWA (inline manifest via JS) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='180'%20height='180'%20viewBox='0%200%20180%20180'%3E%3Cdefs%3E%3CradialGradient%20id='g'%20cx='30%25'%20cy='25%25'%20r='90%25'%3E%3Cstop%20offset='0'%20stop-color='%23bfffe8'/%3E%3Cstop%20offset='0.55'%20stop-color='%2321c7a8'/%3E%3Cstop%20offset='1'%20stop-color='%230d2b24'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect%20width='180'%20height='180'%20rx='40'%20fill='url(%23g)'/%3E%3Cpath%20d='M90%2032%20c23%200%2041%2018%2041%2041%200%2023-18%2041-41%2041S49%2096%2049%2073%20c0-23%2018-41%2041-41Z'%20fill='rgba(255,255,255,0.2)'/%3E%3Cpath%20d='M90%2049%20l18%2028%20-18%2054%20-18-54%20Z'%20fill='rgba(255,255,255,0.85)'/%3E%3Cpath%20d='M90%2059%20l10%2017%20-10%2030%20-10-30%20Z'%20fill='%230d2b24'/%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300,400,600&family=Manrope:wght@300,400,500,600,700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg0:#071a16;
+      --bg1:#0d2b24;
+      --ink:#eaf7f3;
+      --muted:#b8d7cf;
+      --soft: rgba(234,247,243,.08);
+      --soft2: rgba(234,247,243,.12);
+      --stroke: rgba(234,247,243,.14);
+      --stroke2: rgba(234,247,243,.22);
+
+      --accent:#21c7a8;
+      --accent2:#bfffe8;
+      --warn:#ffcf6e;
+      --bad:#ff6b6b;
+      --good:#6ef2b2;
+
+      --shadow: 0 18px 40px rgba(0,0,0,.35);
+      --shadow2: 0 10px 20px rgba(0,0,0,.25);
+      --radius: 18px;
+      --radius2: 26px;
+
+      --h1: clamp(2.2rem, 4.2vw, 3.35rem);
+      --h2: clamp(1.25rem, 2.2vw, 1.6rem);
+      --p: 0.98rem;
+
+      --pad: clamp(16px, 2.5vw, 28px);
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      color:var(--ink);
+      font-family: Manrope, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:
+        radial-gradient(1100px 700px at 12% 10%, rgba(33,199,168,.22), transparent 55%),
+        radial-gradient(900px 620px at 78% 26%, rgba(191,255,232,.14), transparent 60%),
+        radial-gradient(900px 700px at 45% 92%, rgba(255,207,110,.12), transparent 55%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow-x:hidden;
+    }
+
+    a{ color:inherit; text-decoration:none; }
+    button, input, select { font: inherit; color: inherit; }
+    ::selection{ background: rgba(33,199,168,.25); }
+
+    /* Subtle textured overlay */
+    .grain{
+      pointer-events:none;
+      position:fixed;
+      inset:0;
+      opacity:.14;
+      mix-blend-mode: overlay;
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+      background-size: 200px 200px;
+    }
+
+    header{
+      position:sticky;
+      top:0;
+      z-index:50;
+      padding: max(10px, env(safe-area-inset-top)) var(--pad) 10px;
+      background: linear-gradient(180deg, rgba(7,26,22,.9), rgba(7,26,22,.55));
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(234,247,243,.10);
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      min-width: 220px;
+    }
+    .logo{
+      width: 40px; height: 40px;
+      border-radius: 14px;
+      background:
+        radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.55), transparent 65%),
+        radial-gradient(30px 30px at 65% 70%, rgba(33,199,168,.55), transparent 60%),
+        linear-gradient(180deg, rgba(191,255,232,.25), rgba(13,43,36,.65));
+      border: 1px solid rgba(234,247,243,.18);
+      box-shadow: var(--shadow2);
+      position:relative;
+      overflow:hidden;
+    }
+    .logo:after{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        radial-gradient(26px 18px at 52% 35%, rgba(234,247,243,.18), transparent 70%),
+        conic-gradient(from 210deg, rgba(33,199,168,.0), rgba(33,199,168,.35), rgba(191,255,232,.0));
+      opacity:.85;
+      filter: blur(.2px);
+    }
+    .brand h1{
+      margin:0;
+      font-family: Fraunces, serif;
+      font-weight:600;
+      letter-spacing: .2px;
+      font-size: 1.05rem;
+      line-height:1.1;
+    }
+    .brand p{
+      margin:0;
+      color: var(--muted);
+      font-size: .78rem;
+      line-height:1.2;
+    }
+
+    .navPills{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .pill{
+      border: 1px solid rgba(234,247,243,.14);
+      background: rgba(234,247,243,.06);
+      padding: 8px 10px;
+      border-radius: 999px;
+      display:flex;
+      align-items:center;
+      gap: 8px;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      cursor:pointer;
+      user-select:none;
+    }
+    .pill:hover{ transform: translateY(-1px); background: rgba(234,247,243,.09); border-color: rgba(234,247,243,.22); }
+    .pill:active{ transform: translateY(0px) scale(.99); }
+    .dot{
+      width:8px;height:8px;border-radius:99px;
+      background: var(--accent);
+      box-shadow: 0 0 0 6px rgba(33,199,168,.14);
+    }
+    .pill small{ color: var(--muted); font-weight:600; letter-spacing:.2px; }
+    .pill b{ font-weight:700; }
+
+    main{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px var(--pad) 120px;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns: 1.3fr .9fr;
+      gap: clamp(16px, 3.2vw, 30px);
+      align-items:stretch;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 920px){
+      .hero{ grid-template-columns: 1fr; }
+      .brand{ min-width:auto; }
+    }
+
+    .heroLeft{
+      padding: clamp(18px, 3vw, 28px);
+      border-radius: var(--radius2);
+      border: 1px solid rgba(234,247,243,.16);
+      background:
+        radial-gradient(900px 500px at 12% 20%, rgba(33,199,168,.18), transparent 58%),
+        radial-gradient(600px 350px at 80% 10%, rgba(191,255,232,.13), transparent 62%),
+        rgba(234,247,243,.05);
+      box-shadow: var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .heroLeft:before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:
+        linear-gradient(120deg, rgba(33,199,168,.25), transparent 35%),
+        radial-gradient(300px 220px at 92% 18%, rgba(255,207,110,.16), transparent 60%);
+      opacity:.75;
+      pointer-events:none;
+      mask: linear-gradient(#000, transparent 72%);
+    }
+
+    .kicker{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      letter-spacing:.22em;
+      text-transform: uppercase;
+      font-size: .75rem;
+      font-weight: 700;
+    }
+    .kicker .line{
+      height:1px;
+      flex: 1;
+      background: linear-gradient(90deg, rgba(234,247,243,.0), rgba(234,247,243,.22), rgba(234,247,243,.0));
+    }
+
+    .heroLeft h2{
+      margin: 0 0 10px 0;
+      font-family: Fraunces, serif;
+      font-size: var(--h1);
+      line-height: 1.05;
+      letter-spacing: -.02em;
+    }
+    .heroLeft p{
+      margin: 0 0 18px 0;
+      max-width: 62ch;
+      color: rgba(234,247,243,.86);
+      font-size: clamp(.98rem, 1.1vw, 1.08rem);
+      line-height: 1.55;
+    }
+
+    .ctaRow{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top: 14px;
+      position:relative;
+      z-index:2;
+    }
+
+    .btn{
+      border: 1px solid rgba(234,247,243,.18);
+      background: rgba(234,247,243,.06);
+      padding: 11px 14px;
+      border-radius: 14px;
+      cursor:pointer;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+      display:inline-flex;
+      align-items:center;
+      gap: 10px;
+      user-select:none;
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      border-color: rgba(234,247,243,.28);
+      background: rgba(234,247,243,.09);
+      box-shadow: 0 14px 28px rgba(0,0,0,.22);
+    }
+    .btn:active{ transform: translateY(0px) scale(.99); }
+    .btnPrimary{
+      background: linear-gradient(180deg, rgba(33,199,168,.95), rgba(18,142,120,.92));
+      border-color: rgba(191,255,232,.22);
+      color: #062018;
+      font-weight: 800;
+      letter-spacing: .01em;
+    }
+    .btnPrimary:hover{
+      background: linear-gradient(180deg, rgba(191,255,232,.92), rgba(33,199,168,.9));
+      border-color: rgba(191,255,232,.35);
+    }
+
+    .chip{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border:1px solid rgba(234,247,243,.14);
+      background: rgba(7,26,22,.35);
+      color: rgba(234,247,243,.9);
+      font-size: .86rem;
+    }
+    .chip strong{ font-variant-numeric: tabular-nums; }
+
+    .heroRight{
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+
+    .panel{
+      border-radius: var(--radius2);
+      border: 1px solid rgba(234,247,243,.14);
+      background: rgba(234,247,243,.045);
+      box-shadow: var(--shadow2);
+      overflow:hidden;
+    }
+    .panelHeader{
+      padding: 14px 16px;
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      align-items:center;
+      border-bottom: 1px solid rgba(234,247,243,.12);
+      background: linear-gradient(180deg, rgba(234,247,243,.06), rgba(234,247,243,.02));
+    }
+    .panelHeader h3{
+      margin:0;
+      font-size: 1rem;
+      letter-spacing: .02em;
+    }
+    .panelHeader span{
+      font-size:.82rem;
+      color: var(--muted);
+      font-weight:700;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+    }
+    .panelBody{ padding: 14px 16px 16px; }
+
+    .stats{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat{
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(234,247,243,.12);
+      background:
+        radial-gradient(220px 120px at 25% 20%, rgba(33,199,168,.14), transparent 60%),
+        rgba(234,247,243,.035);
+      min-height: 88px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .stat .label{
+      color: var(--muted);
+      font-weight:700;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      font-size:.72rem;
+    }
+    .stat .value{
+      font-variant-numeric: tabular-nums;
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -.01em;
+    }
+    .stat .sub{
+      color: rgba(234,247,243,.78);
+      font-size:.85rem;
+    }
+
+    .progressWrap{
+      margin-top: 10px;
+      display:grid;
+      gap: 10px;
+    }
+    .bar{
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(234,247,243,.08);
+      border: 1px solid rgba(234,247,243,.12);
+      overflow:hidden;
+      position:relative;
+    }
+    .bar > i{
+      display:block;
+      height:100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(33,199,168,.95), rgba(191,255,232,.9));
+      border-right: 1px solid rgba(6,32,24,.22);
+      border-radius: 999px;
+      box-shadow: 0 10px 24px rgba(33,199,168,.25);
+      transition: width .45s ease;
+    }
+    .barMeta{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+    .barMeta b{ font-size:.95rem; }
+    .barMeta small{ color: var(--muted); }
+
+    section{
+      margin-top: clamp(18px, 3.2vw, 26px);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: clamp(14px, 2.6vw, 24px);
+      align-items:start;
+    }
+    @media (max-width: 980px){
+      .layout{ grid-template-columns: 1fr; }
+    }
+
+    .formGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 620px){
+      .formGrid{ grid-template-columns: 1fr; }
+      .stats{ grid-template-columns: 1fr; }
+    }
+
+    label{
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      font-size: .85rem;
+      color: rgba(234,247,243,.86);
+    }
+    label span{
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-size:.72rem;
+    }
+    input, select, textarea{
+      width:100%;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(234,247,243,.14);
+      background: rgba(7,26,22,.35);
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    textarea{ min-height: 86px; resize: vertical; }
+    input:focus, select:focus, textarea:focus{
+      border-color: rgba(33,199,168,.55);
+      box-shadow: 0 0 0 4px rgba(33,199,168,.14);
+      background: rgba(7,26,22,.45);
+    }
+
+    .row{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      margin-top: 12px;
+    }
+
+    .hint{
+      color: rgba(234,247,243,.72);
+      font-size: .9rem;
+      line-height: 1.45;
+    }
+    .hint b{ color: rgba(234,247,243,.92); }
+
+    .list{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .entry{
+      border-radius: 18px;
+      border: 1px solid rgba(234,247,243,.14);
+      background:
+        radial-gradient(260px 120px at 15% 20%, rgba(255,207,110,.10), transparent 60%),
+        rgba(234,247,243,.04);
+      padding: 12px 12px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items:center;
+      transition: transform .15s ease, border-color .15s ease, background .15s ease;
+    }
+    .entry:hover{
+      transform: translateY(-1px);
+      border-color: rgba(234,247,243,.22);
+      background: rgba(234,247,243,.055);
+    }
+    .entryMain{
+      display:grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .entryTop{
+      display:flex;
+      gap: 10px;
+      align-items:baseline;
+      flex-wrap:wrap;
+      min-width:0;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      border: 1px solid rgba(234,247,243,.14);
+      background: rgba(7,26,22,.35);
+      font-weight: 800;
+      letter-spacing:.02em;
+      font-size:.85rem;
+      white-space:nowrap;
+    }
+    .badge i{
+      width:8px; height:8px; border-radius:99px;
+      background: var(--warn);
+      box-shadow: 0 0 0 6px rgba(255,207,110,.10);
+    }
+    .meta{
+      color: rgba(234,247,243,.78);
+      font-size: .9rem;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .meta strong{ font-variant-numeric: tabular-nums; }
+    .note{
+      color: rgba(234,247,243,.70);
+      font-size: .88rem;
+      line-height:1.35;
+      overflow:hidden;
+      display:-webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .entryActions{
+      display:flex;
+      gap: 8px;
+      align-items:center;
+    }
+    .iconBtn{
+      width: 40px; height: 40px;
+      border-radius: 14px;
+      border: 1px solid rgba(234,247,243,.14);
+      background: rgba(234,247,243,.04);
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .iconBtn:hover{ transform: translateY(-1px); background: rgba(234,247,243,.07); border-color: rgba(234,247,243,.24); }
+    .iconBtn:active{ transform: translateY(0px) scale(.99); }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:.8rem;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(234,247,243,.14);
+      background: rgba(7,26,22,.35);
+      color: rgba(234,247,243,.9);
+    }
+
+    .bottomNav{
+      position:fixed;
+      left:0; right:0;
+      bottom:0;
+      padding: 10px var(--pad) max(10px, env(safe-area-inset-bottom));
+      background: linear-gradient(180deg, rgba(7,26,22,.15), rgba(7,26,22,.86));
+      backdrop-filter: blur(14px);
+      border-top: 1px solid rgba(234,247,243,.10);
+      z-index:60;
+    }
+    .bottomNavInner{
+      max-width:1100px;
+      margin:0 auto;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .seg{
+      display:flex;
+      gap: 8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 84px;
+      z-index: 80;
+      width: min(560px, calc(100vw - 2*var(--pad)));
+      border-radius: 18px;
+      border: 1px solid rgba(234,247,243,.16);
+      background: rgba(7,26,22,.78);
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      padding: 12px 12px;
+      display:none;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .toast.show{ display:flex; animation: pop .18s ease-out; }
+    @keyframes pop{ from{ transform:translateX(-50%) translateY(6px); opacity:0; } to{ transform:translateX(-50%) translateY(0); opacity:1; } }
+    .toast p{ margin:0; color: rgba(234,247,243,.88); font-size:.95rem; line-height:1.35; }
+    .toast p b{ color: var(--accent2); }
+    .toast .tiny{ color: var(--muted); font-size:.82rem; margin-top:2px; }
+    .toastActions{ display:flex; gap: 8px; align-items:center; }
+
+    .reveal{
+      opacity:0;
+      transform: translateY(10px);
+    }
+    .reveal.in{
+      opacity:1;
+      transform: translateY(0);
+      transition: opacity .55s ease, transform .55s ease;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce){
+      .reveal, .reveal.in{ transition:none !important; transform:none !important; opacity:1 !important; }
+      .btn, .pill, .entry, .iconBtn{ transition:none !important; }
+      .toast.show{ animation:none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header>
+    <div class="topbar">
+      <div class="brand" aria-label="Brújula — PWA para dejar de fumar">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Brújula</h1>
+          <p>Dejar de fumar, un registro honesto y útil</p>
+        </div>
+      </div>
+
+      <div class="navPills" role="navigation" aria-label="Atajos">
+        <div class="pill" id="pillOffline" title="Estado offline">
+          <span class="dot" id="offlineDot" aria-hidden="true"></span>
+          <small id="offlineLabel">Listo</small>
+        </div>
+        <button class="pill" id="pillInstall" type="button" title="Instalar como app">
+          <span class="dot" style="background: var(--accent2); box-shadow: 0 0 0 6px rgba(191,255,232,.12);" aria-hidden="true"></span>
+          <small><b>Instalar</b></small>
+        </button>
+        <button class="pill" id="pillExport" type="button" title="Exportar datos">
+          <span class="dot" style="background: var(--warn); box-shadow: 0 0 0 6px rgba(255,207,110,.10);" aria-hidden="true"></span>
+          <small><b>Exportar</b></small>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="heroLeft reveal">
+        <div class="kicker">
+          <span>Progreso real</span>
+          <span class="line" aria-hidden="true"></span>
+          <span>Offline</span>
+        </div>
+
+        <h2>Tu día sin humo, medido con calma.</h2>
+        <p>
+          Registra <b>fechas, horarios y gastos</b>, pero también lo que normalmente se ignora:
+          <b>antojos</b>, <b>desencadenantes</b> y <b>estrategias</b>. Menos culpa, más datos.
+        </p>
+
+        <div class="ctaRow">
+          <button class="btn btnPrimary" id="btnSetQuitDate" type="button" aria-label="Definir fecha y hora de inicio">
+            <!-- inline svg icon -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M7 3v3M17 3v3" stroke="#062018" stroke-width="2" stroke-linecap="round"/>
+              <path d="M4.5 8.2h15" stroke="#062018" stroke-width="2" stroke-linecap="round"/>
+              <path d="M6.2 6h11.6c1 0 1.7.8 1.7 1.7v12.1c0 1-.8 1.7-1.7 1.7H6.2c-1 0-1.7-.8-1.7-1.7V7.7C4.5 6.8 5.2 6 6.2 6Z" stroke="#062018" stroke-width="2"/>
+              <path d="M8 12h4" stroke="#062018" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Definir inicio
+          </button>
+
+          <button class="btn" id="btnQuickCraving" type="button" aria-label="Registrar antojo rápido">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 21s-7-4.4-7-11a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 6.6-7 11-7 11Z" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M12 9v4l3 2" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Antojo (rápido)
+          </button>
+
+          <span class="chip" title="Ahorro estimado">
+            <span aria-hidden="true">≈</span>
+            <strong id="chipSavings">0</strong>
+            <span>ahorrados</span>
+          </span>
+
+          <span class="chip" title="Racha desde tu inicio">
+            <span aria-hidden="true">⏱</span>
+            <strong id="chipStreak">0h</strong>
+            <span>sin fumar</span>
+          </span>
+        </div>
+      </div>
+
+      <aside class="heroRight">
+        <div class="panel reveal" style="animation-delay:.06s">
+          <div class="panelHeader">
+            <h3>Panel de hoy</h3>
+            <span id="todayLabel">Hoy</span>
+          </div>
+          <div class="panelBody">
+            <div class="stats">
+              <div class="stat">
+                <div class="label">Cigarrillos</div>
+                <div class="value" id="statCigs">0</div>
+                <div class="sub" id="statCigsSub">registrados hoy</div>
+              </div>
+              <div class="stat">
+                <div class="label">Gasto</div>
+                <div class="value" id="statCost">$0</div>
+                <div class="sub" id="statCostSub">hoy</div>
+              </div>
+              <div class="stat">
+                <div class="label">Antojos</div>
+                <div class="value" id="statCravings">0</div>
+                <div class="sub">registrados hoy</div>
+              </div>
+              <div class="stat">
+                <div class="label">Promedio</div>
+                <div class="value" id="statAvg">$0</div>
+                <div class="sub">por cigarrillo</div>
+              </div>
+            </div>
+
+            <div class="progressWrap" aria-label="Progreso hacia tu meta diaria">
+              <div class="barMeta">
+                <b id="goalText">Meta diaria: 0</b>
+                <small id="goalHint">Configura una meta</small>
+              </div>
+              <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <i id="goalBar"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel reveal" style="animation-delay:.12s">
+          <div class="panelHeader">
+            <h3>Recomendaciones (además de fechas y gastos)</h3>
+            <span>Qué sumar</span>
+          </div>
+          <div class="panelBody">
+            <p class="hint" style="margin:0">
+              Para que esto te ayude de verdad, te recomiendo agregar:
+              <b>registro de antojos</b> (intensidad + desencadenante),
+              <b>estrategias</b> (respiración, agua, caminar),
+              <b>meta diaria</b> (reducción gradual),
+              y <b>motivos</b> (para leerlos cuando apriete).
+              <br><br>
+              En esta primera versión ya incluí <b>antojos</b>, <b>meta diaria</b> y <b>exportación</b>.
+            </p>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="layout">
+      <article class="panel reveal" style="animation-delay:.18s">
+        <div class="panelHeader">
+          <h3>Registrar evento</h3>
+          <span>rápido + claro</span>
+        </div>
+        <div class="panelBody">
+          <form id="entryForm">
+            <div class="formGrid">
+              <label>
+                <span>Tipo</span>
+                <select id="type">
+                  <option value="smoke">Fumé</option>
+                  <option value="craving">Antojo (no fumé)</option>
+                  <option value="note">Nota</option>
+                </select>
+              </label>
+
+              <label>
+                <span>Fecha</span>
+                <input id="date" type="date" required />
+              </label>
+
+              <label>
+                <span>Hora</span>
+                <input id="time" type="time" required />
+              </label>
+
+              <label>
+                <span>Gasto (opcional)</span>
+                <input id="cost" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
+              </label>
+
+              <label id="qtyWrap">
+                <span>Cantidad (cigarrillos)</span>
+                <input id="qty" type="number" min="1" step="1" inputmode="numeric" value="1" />
+              </label>
+
+              <label id="intensityWrap" style="display:none">
+                <span>Intensidad (1–10)</span>
+                <input id="intensity" type="number" min="1" max="10" step="1" inputmode="numeric" value="6" />
+              </label>
+            </div>
+
+            <label style="margin-top:10px">
+              <span>Desencadenante / Contexto</span>
+              <input id="trigger" type="text" placeholder="Ej: café, estrés, after, manejar, discusión..." />
+            </label>
+
+            <label style="margin-top:10px">
+              <span>Nota (opcional)</span>
+              <textarea id="note" placeholder="¿Qué pasó? ¿Qué te ayudó? ¿Qué harías distinto?"></textarea>
+            </label>
+
+            <div class="row">
+              <div class="hint">
+                Tip: usa <span class="kbd">Antojo</span> para registrar el impulso sin fumar. Ahí está el aprendizaje.
+              </div>
+              <div class="seg">
+                <button class="btn" id="btnReset" type="button">Limpiar</button>
+                <button class="btn btnPrimary" type="submit">Guardar</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </article>
+
+      <aside class="panel reveal" style="animation-delay:.24s">
+        <div class="panelHeader">
+          <h3>Ajustes</h3>
+          <span>tu plan</span>
+        </div>
+        <div class="panelBody">
+          <div class="formGrid">
+            <label>
+              <span>Meta diaria (cigarrillos)</span>
+              <input id="dailyGoal" type="number" min="0" step="1" inputmode="numeric" placeholder="Ej: 6" />
+            </label>
+
+            <label>
+              <span>Moneda</span>
+              <select id="currency">
+                <option value="USD">USD ($)</option>
+                <option value="MXN">MXN ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="ARS">ARS ($)</option>
+                <option value="CLP">CLP ($)</option>
+                <option value="COP">COP ($)</option>
+                <option value="PEN">PEN (S/)</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Precio por paquete</span>
+              <input id="packPrice" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ej: 4.50" />
+            </label>
+
+            <label>
+              <span>Cigarrillos por paquete</span>
+              <input id="cigsPerPack" type="number" min="1" step="1" inputmode="numeric" placeholder="20" />
+            </label>
+          </div>
+
+          <div class="row">
+            <p class="hint" style="margin:0">
+              Si completas <b>precio por paquete</b> + <b>cigarrillos por paquete</b>, el sistema estima tu <b>costo por cigarrillo</b> y el <b>ahorro</b>.
+            </p>
+          </div>
+
+          <div class="row" style="margin-top:14px">
+            <div class="seg">
+              <button class="btn" id="btnClearAll" type="button" title="Borrar datos locales">Borrar todo</button>
+            </div>
+            <div class="seg">
+              <button class="btn" id="btnShare" type="button" title="Compartir resumen">Compartir</button>
+              <button class="btn btnPrimary" id="btnSaveSettings" type="button">Guardar ajustes</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel reveal" style="animation-delay:.28s">
+      <div class="panelHeader">
+        <h3>Timeline</h3>
+        <span>últimos registros</span>
+      </div>
+      <div class="panelBody">
+        <div class="row" style="margin-top:0">
+          <p class="hint" style="margin:0">
+            Todo queda guardado <b>en tu dispositivo</b> (local). Exporta cuando quieras.
+          </p>
+          <div class="seg">
+            <button class="btn" id="btnFilterToday" type="button">Ver hoy</button>
+            <button class="btn" id="btnFilterAll" type="button">Ver todo</button>
+          </div>
+        </div>
+
+        <div class="list" id="list" style="margin-top:12px" aria-live="polite">
+          <!-- entries injected -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bottomNav" role="contentinfo" aria-label="Acciones rápidas">
+    <div class="bottomNavInner">
+      <div class="seg">
+        <button class="btn" id="btnSmokeNow" type="button" title="Registrar que fumaste ahora">
+          + Fumé ahora
+        </button>
+        <button class="btn" id="btnCravingNow" type="button" title="Registrar antojo ahora">
+          + Antojo ahora
+        </button>
+      </div>
+
+      <div class="seg">
+        <button class="btn" id="btnUndo" type="button" title="Deshacer último registro">
+          Deshacer
+        </button>
+        <button class="btn btnPrimary" id="btnFocus" type="button" title="Respirar 60s">
+          60s foco
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite">
+    <div>
+      <p id="toastText">Listo</p>
+      <div class="tiny" id="toastSub"></div>
+    </div>
+    <div class="toastActions">
+      <button class="iconBtn" id="toastClose" type="button" aria-label="Cerrar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M7 7l10 10M17 7L7 17" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const $ = (sel, root=document) => root.querySelector(sel);
+    const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+    const uid = () => Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
+
+    const toISODate = (d) => {
+      const pad = (n) => String(n).padStart(2,"0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    };
+    const toTime = (d) => {
+      const pad = (n) => String(n).padStart(2,"0");
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+    const toLocalDT = (dateStr, timeStr) => {
+      // local time
+      const [y,m,da] = dateStr.split("-").map(Number);
+      const [hh,mm] = timeStr.split(":").map(Number);
+      return new Date(y, m-1, da, hh, mm, 0, 0);
+    };
+
+    const formatMoney = (amount, currency) => {
+      try{
+        return new Intl.NumberFormat(undefined, { style:"currency", currency }).format(amount);
+      }catch{
+        // fallback
+        const sym = currency === "EUR" ? "€" : (currency === "PEN" ? "S/" : "$");
+        return sym + (Math.round(amount*100)/100).toFixed(2);
+      }
+    };
+
+    const todayKey = () => toISODate(new Date());
+
+    // ---------- Storage ----------
+    const KEY = "brujula.v1";
+    const load = () => {
+      try{
+        const raw = localStorage.getItem(KEY);
+        if(!raw) return null;
+        return JSON.parse(raw);
+      }catch{ return null; }
+    };
+    const save = (state) => localStorage.setItem(KEY, JSON.stringify(state));
+
+    const defaultState = () => ({
+      settings: {
+        currency: "USD",
+        dailyGoal: 0,
+        packPrice: 0,
+        cigsPerPack: 20,
+        quitStartISO: "", // ISO string
+      },
+      entries: [], // {id,type,dtISO,date,time,qty,cost,intensity,trigger,note,createdAt}
+      ui: {
+        filter: "today"
+      }
+    });
+
+    let state = load() ?? defaultState();
+    let lastDeleted = null;
+    let deferredPrompt = null;
+
+    // ---------- PWA: manifest + service worker (no external files) ----------
+    (function setupManifest(){
+      const manifest = {
+        name: "Brújula — Dejar de Fumar",
+        short_name: "Brújula",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#071a16",
+        theme_color: "#0d2b24",
+        description: "PWA para registrar cigarrillos, gastos, antojos y progreso. Offline.",
+        icons: [
+          {
+            src: "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='192'%20height='192'%20viewBox='0%200%20180%20180'%3E%3Cdefs%3E%3CradialGradient%20id='g'%20cx='30%25'%20cy='25%25'%20r='90%25'%3E%3Cstop%20offset='0'%20stop-color='%23bfffe8'/%3E%3Cstop%20offset='0.55'%20stop-color='%2321c7a8'/%3E%3Cstop%20offset='1'%20stop-color='%230d2b24'/%3E%3C/radialGradient%3E%3C/defs%3E%3Crect%20width='180'%20height='180'%20rx='40'%20fill='url(%23g)'/%3E%3Cpath%20d='M90%2032%20c23%200%2041%2018%2041%2041%200%2023-18%2041-41%2041S49%2096%2049%2073%20c0-23%2018-41%2041-41Z'%20fill='rgba(255,255,255,0.2)'/%3E%3Cpath%20d='M90%2049%20l18%2028%20-18%2054%20-18-54%20Z'%20fill='rgba(255,255,255,0.85)'/%3E%3Cpath%20d='M90%2059%20l10%2017%20-10%2030%20-10-30%20Z'%20fill='%230d2b24'/%3E%3C/svg%3E",
+            sizes: "192x192",
+            type: "image/svg+xml",
+            purpose: "any"
+          }
+        ]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], {type:"application/manifest+json"});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("link");
+      link.rel = "manifest";
+      link.href = url;
+      document.head.appendChild(link);
+    })();
+
+    (async function setupSW(){
+      if(!("serviceWorker" in navigator)) return;
+      const swCode = `
+        const CACHE = "brujula-cache-v1";
+        self.addEventListener("install", (e) => {
+          e.waitUntil((async ()=>{
+            const cache = await caches.open(CACHE);
+            // Cache the shell (this single HTML). In SW scope, request to root may differ; add both.
+            await cache.addAll([self.registration.scope, "./"]);
+            self.skipWaiting();
+          })());
+        });
+        self.addEventListener("activate", (e)=> {
+          e.waitUntil((async ()=>{
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => k === CACHE ? null : caches.delete(k)));
+            self.clients.claim();
+          })());
+        });
+        self.addEventListener("fetch", (e)=>{
+          const req = e.request;
+          const url = new URL(req.url);
+          // For navigations: network-first, fallback to cache for offline.
+          if(req.mode === "navigate"){
+            e.respondWith((async ()=>{
+              try{
+                const fresh = await fetch(req);
+                const cache = await caches.open(CACHE);
+                cache.put("./", fresh.clone());
+                return fresh;
+              }catch{
+                const cache = await caches.open(CACHE);
+                return (await cache.match("./")) || (await cache.match(self.registration.scope));
+              }
+            })());
+            return;
+          }
+          // For others: cache-first
+          e.respondWith((async ()=>{
+            const cache = await caches.open(CACHE);
+            const cached = await cache.match(req);
+            if(cached) return cached;
+            try{
+              const fresh = await fetch(req);
+              // Cache same-origin assets (fonts from google are cross-origin; skip to avoid opaque issues)
+              if(url.origin === location.origin){
+                cache.put(req, fresh.clone());
+              }
+              return fresh;
+            }catch{
+              return cached || Response.error();
+            }
+          })());
+        });
+      `;
+      const blob = new Blob([swCode], {type:"text/javascript"});
+      const swUrl = URL.createObjectURL(blob);
+      try{
+        await navigator.serviceWorker.register(swUrl, { scope: "./" });
+        updateOfflineUI();
+      }catch(e){
+        // ignore
+      }
+    })();
+
+    // Install prompt
+    window.addEventListener("beforeinstallprompt", (e)=>{
+      e.preventDefault();
+      deferredPrompt = e;
+      $("#pillInstall").style.display = "";
+    });
+
+    // ---------- UI wiring ----------
+    const el = {
+      type: $("#type"),
+      date: $("#date"),
+      time: $("#time"),
+      cost: $("#cost"),
+      qty: $("#qty"),
+      qtyWrap: $("#qtyWrap"),
+      intensity: $("#intensity"),
+      intensityWrap: $("#intensityWrap"),
+      trigger: $("#trigger"),
+      note: $("#note"),
+      list: $("#list"),
+
+      dailyGoal: $("#dailyGoal"),
+      currency: $("#currency"),
+      packPrice: $("#packPrice"),
+      cigsPerPack: $("#cigsPerPack"),
+
+      statCigs: $("#statCigs"),
+      statCost: $("#statCost"),
+      statCravings: $("#statCravings"),
+      statAvg: $("#statAvg"),
+      chipSavings: $("#chipSavings"),
+      chipStreak: $("#chipStreak"),
+      todayLabel: $("#todayLabel"),
+
+      goalText: $("#goalText"),
+      goalHint: $("#goalHint"),
+      goalBar: $("#goalBar"),
+
+      offlineDot: $("#offlineDot"),
+      offlineLabel: $("#offlineLabel"),
+
+      toast: $("#toast"),
+      toastText: $("#toastText"),
+      toastSub: $("#toastSub"),
+      toastClose: $("#toastClose"),
+    };
+
+    const toast = (text, sub="") => {
+      el.toastText.textContent = text;
+      el.toastSub.textContent = sub;
+      el.toast.classList.add("show");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(()=> el.toast.classList.remove("show"), 3800);
+    };
+    el.toastClose.addEventListener("click", ()=> el.toast.classList.remove("show"));
+
+    const setDefaultsNow = () => {
+      const now = new Date();
+      el.date.value = toISODate(now);
+      el.time.value = toTime(now);
+    };
+
+    const updateTypeUI = () => {
+      const t = el.type.value;
+      const isSmoke = t === "smoke";
+      const isCraving = t === "craving";
+
+      el.qtyWrap.style.display = isSmoke ? "" : "none";
+      el.intensityWrap.style.display = isCraving ? "" : "none";
+
+      // Cost is relevant to smoke; allow for note if they want, but hint via placeholder
+      el.cost.placeholder = isSmoke ? "Ej: 0.50" : "0.00";
+    };
+
+    el.type.addEventListener("change", updateTypeUI);
+
+    $("#btnReset").addEventListener("click", ()=>{
+      $("#entryForm").reset();
+      setDefaultsNow();
+      el.qty.value = 1;
+      el.intensity.value = 6;
+      updateTypeUI();
+      toast("Formulario listo", "Registra un evento cuando ocurra (o apenas puedas).");
+    });
+
+    // Quick actions
+    const addQuick = (type) => {
+      const now = new Date();
+      const entry = {
+        id: uid(),
+        type,
+        dtISO: now.toISOString(),
+        date: toISODate(now),
+        time: toTime(now),
+        qty: type === "smoke" ? 1 : 0,
+        cost: 0,
+        intensity: type === "craving" ? 6 : 0,
+        trigger: "",
+        note: "",
+        createdAt: Date.now()
+      };
+      state.entries.unshift(entry);
+      save(state);
+      render();
+      toast(type === "smoke" ? "Registrado: fumé" : "Registrado: antojo", "Si puedes, edita y agrega desencadenante para aprender patrones.");
+    };
+
+    $("#btnSmokeNow").addEventListener("click", ()=> addQuick("smoke"));
+    $("#btnCravingNow").addEventListener("click", ()=> addQuick("craving"));
+    $("#btnQuickCraving").addEventListener("click", ()=> addQuick("craving"));
+
+    // Undo
+    $("#btnUndo").addEventListener("click", ()=>{
+      if(lastDeleted){
+        state.entries.unshift(lastDeleted);
+        lastDeleted = null;
+        save(state);
+        render();
+        toast("Deshacer", "Se restauró el último registro eliminado.");
+      }else{
+        toast("Nada que deshacer", "Elimina un registro para poder restaurarlo aquí.");
+      }
+    });
+
+    // Focus 60s
+    $("#btnFocus").addEventListener("click", async ()=>{
+      const start = Date.now();
+      const total = 60;
+      toast("Respira conmigo: 60s", "Inhala 4s • sostén 2s • exhala 6s");
+      // small haptic if available
+      if(navigator.vibrate) navigator.vibrate([20, 30, 20]);
+
+      // Update toast sub each 10s
+      for(let i=1;i<=6;i++){
+        await new Promise(r=>setTimeout(r, 10000));
+        const left = total - i*10;
+        if(left > 0) toast("Respira conmigo: 60s", `Quedan ${left}s. Suaviza hombros y mandíbula.`);
+      }
+      const elapsed = Math.round((Date.now()-start)/1000);
+      toast("Bien", `Hiciste ${elapsed}s. Si sigue el antojo: agua + caminar 2 min.`);
+    });
+
+    // Set quit start
+    $("#btnSetQuitDate").addEventListener("click", ()=>{
+      const now = new Date();
+      const current = state.settings.quitStartISO ? new Date(state.settings.quitStartISO) : now;
+      const ds = toISODate(current);
+      const ts = toTime(current);
+
+      // quick modal via prompt (simple, single-file)
+      const date = prompt("Fecha de inicio (YYYY-MM-DD):", ds);
+      if(!date) return;
+      const time = prompt("Hora de inicio (HH:MM):", ts);
+      if(!time) return;
+
+      const dt = toLocalDT(date, time);
+      state.settings.quitStartISO = dt.toISOString();
+      save(state);
+      render();
+      toast("Inicio definido", `Desde ${date} ${time}. La racha se calcula con eso.`);
+    });
+
+    // Filters
+    $("#btnFilterToday").addEventListener("click", ()=>{
+      state.ui.filter = "today";
+      save(state);
+      renderList();
+      toast("Filtro: hoy", "Mostrando registros de hoy.");
+    });
+    $("#btnFilterAll").addEventListener("click", ()=>{
+      state.ui.filter = "all";
+      save(state);
+      renderList();
+      toast("Filtro: todo", "Mostrando todos los registros.");
+    });
+
+    // Export
+    $("#pillExport").addEventListener("click", ()=>{
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        ...state
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `brujula-export-${todayKey()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast("Exportado", "Se descargó un archivo .json con tus datos.");
+    });
+
+    // Install
+    $("#pillInstall").addEventListener("click", async ()=>{
+      if(!deferredPrompt){
+        toast("Instalación", "Si tu navegador lo permite, aparecerá la opción \"Agregar a pantalla de inicio\".");
+        return;
+      }
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      toast("Instalación", outcome === "accepted" ? "¡Listo! Se instalará como app." : "Cancelaste la instalación.");
+    });
+
+    // Share summary
+    $("#btnShare").addEventListener("click", async ()=>{
+      const sum = computeTodaySummary();
+      const currency = state.settings.currency;
+      const msg =
+`Brújula — resumen de hoy
+• Cigarrillos: ${sum.cigs}
+• Antojos: ${sum.cravings}
+• Gasto: ${formatMoney(sum.cost, currency)}
+• Ahorro estimado: ${formatMoney(sum.savings, currency)}
+• Racha: ${humanStreak()}
+
+(Registro local en mi dispositivo)`;
+
+      try{
+        if(navigator.share){
+          await navigator.share({ title:"Brújula — Resumen", text: msg });
+          toast("Compartido", "Se envió el resumen.");
+        }else{
+          await navigator.clipboard.writeText(msg);
+          toast("Copiado", "Resumen copiado al portapapeles.");
+        }
+      }catch{
+        toast("No se pudo compartir", "Puedes exportar tus datos desde arriba.");
+      }
+    });
+
+    // Save settings
+    $("#btnSaveSettings").addEventListener("click", ()=>{
+      state.settings.currency = el.currency.value;
+      state.settings.dailyGoal = Number(el.dailyGoal.value || 0);
+      state.settings.packPrice = Number(el.packPrice.value || 0);
+      state.settings.cigsPerPack = Math.max(1, Number(el.cigsPerPack.value || 20));
+      save(state);
+      render();
+      toast("Ajustes guardados", "Tu meta y costos se aplicaron al panel.");
+    });
+
+    // Clear all
+    $("#btnClearAll").addEventListener("click", ()=>{
+      const ok = confirm("¿Borrar TODO? Se eliminarán registros y ajustes de este dispositivo.");
+      if(!ok) return;
+      state = defaultState();
+      save(state);
+      lastDeleted = null;
+      setDefaultsNow();
+      updateTypeUI();
+      render();
+      toast("Datos borrados", "Brújula quedó en blanco.");
+    });
+
+    // Form submit
+    $("#entryForm").addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const type = el.type.value;
+      const date = el.date.value;
+      const time = el.time.value;
+
+      if(!date || !time){
+        toast("Falta fecha u hora", "Completa ambos campos para guardar.");
+        return;
+      }
+
+      const dt = toLocalDT(date, time);
+      const qty = type === "smoke" ? Math.max(1, Number(el.qty.value || 1)) : 0;
+      const intensity = type === "craving" ? Math.min(10, Math.max(1, Number(el.intensity.value || 6))) : 0;
+
+      const entry = {
+        id: uid(),
+        type,
+        dtISO: dt.toISOString(),
+        date,
+        time,
+        qty,
+        cost: Math.max(0, Number(el.cost.value || 0)),
+        intensity,
+        trigger: (el.trigger.value || "").trim(),
+        note: (el.note.value || "").trim(),
+        createdAt: Date.now()
+      };
+
+      state.entries.unshift(entry);
+      save(state);
+      render();
+      toast("Guardado", type === "smoke" ? "Registro de cigarrillo agregado." : (type === "craving" ? "Antojo registrado (bien ahí)." : "Nota agregada."));
+      // keep date/time but clear optional fields
+      el.cost.value = "";
+      el.trigger.value = "";
+      el.note.value = "";
+      if(type === "note") el.type.value = "smoke";
+      updateTypeUI();
+    });
+
+    // ---------- Computations ----------
+    const costPerCig = () => {
+      const { packPrice, cigsPerPack } = state.settings;
+      if(packPrice > 0 && cigsPerPack > 0) return packPrice / cigsPerPack;
+      // fallback: estimate from today's average if any costs present
+      const sumAll = state.entries.reduce((acc,e)=>{
+        if(e.type === "smoke"){
+          acc.cigs += (e.qty || 0);
+          acc.cost += (e.cost || 0);
+        }
+        return acc;
+      }, {cigs:0,cost:0});
+      if(sumAll.cigs > 0 && sumAll.cost > 0) return sumAll.cost / sumAll.cigs;
+      return 0;
+    };
+
+    const computeTodaySummary = () => {
+      const key = todayKey();
+      const per = costPerCig();
+      const s = state.entries.reduce((acc, e)=>{
+        if(e.date !== key) return acc;
+        if(e.type === "smoke"){
+          acc.cigs += (e.qty || 0);
+          acc.cost += (e.cost || 0);
+        }
+        if(e.type === "craving") acc.cravings += 1;
+        return acc;
+      }, {cigs:0,cost:0,cravings:0});
+      // savings: if quitStart exists, estimate since then; else today "not smoked" not known => estimate from goal
+      // We'll compute savings as (goal - smoked) * per for today; if goal=0, show 0
+      const goal = Number(state.settings.dailyGoal || 0);
+      const savings = (goal > 0 && per > 0) ? Math.max(0, (goal - s.cigs) * per) : 0;
+      return { ...s, savings, per };
+    };
+
+    const humanStreak = () => {
+      if(!state.settings.quitStartISO) return "0h";
+      const start = new Date(state.settings.quitStartISO).getTime();
+      const now = Date.now();
+      const diff = Math.max(0, now - start);
+      const hours = Math.floor(diff / 36e5);
+      const days = Math.floor(hours / 24);
+      const remH = hours % 24;
+      if(days <= 0) return `${hours}h`;
+      return `${days}d ${remH}h`;
+    };
+
+    const updateOfflineUI = () => {
+      const online = navigator.onLine;
+      el.offlineLabel.textContent = online ? "Listo" : "Offline";
+      el.offlineDot.style.background = online ? "var(--accent)" : "var(--warn)";
+      el.offlineDot.style.boxShadow = online ? "0 0 0 6px rgba(33,199,168,.14)" : "0 0 0 6px rgba(255,207,110,.10)";
+    };
+    window.addEventListener("online", ()=>{ updateOfflineUI(); toast("Conexión", "Volviste a estar online."); });
+    window.addEventListener("offline", ()=>{ updateOfflineUI(); toast("Sin conexión", "Puedes seguir registrando. Se guarda localmente."); });
+
+    // ---------- Render ----------
+    const renderStats = () => {
+      const currency = state.settings.currency;
+      const key = todayKey();
+      el.todayLabel.textContent = new Intl.DateTimeFormat(undefined, { weekday:"long", day:"2-digit", month:"short" }).format(new Date());
+
+      const sum = state.entries.reduce((acc, e)=>{
+        if(e.date !== key) return acc;
+        if(e.type === "smoke"){
+          acc.cigs += (e.qty || 0);
+          acc.cost += (e.cost || 0);
+        }
+        if(e.type === "craving") acc.cravings += 1;
+        return acc;
+      }, {cigs:0,cost:0,cravings:0});
+
+      el.statCigs.textContent = String(sum.cigs);
+      el.statCost.textContent = formatMoney(sum.cost, currency);
+      el.statCravings.textContent = String(sum.cravings);
+
+      const per = costPerCig();
+      el.statAvg.textContent = per > 0 ? formatMoney(per, currency) : formatMoney(0, currency);
+
+      // chips
+      const today = computeTodaySummary();
+      el.chipSavings.textContent = formatMoney(today.savings, currency);
+      el.chipStreak.textContent = humanStreak();
+
+      // goal bar
+      const goal = Number(state.settings.dailyGoal || 0);
+      el.goalText.textContent = `Meta diaria: ${goal}`;
+      el.goalHint.textContent = goal > 0 ? `Hoy: ${sum.cigs} / ${goal}` : "Configura una meta";
+      const pct = goal > 0 ? Math.min(100, Math.round((sum.cigs / goal) * 100)) : 0;
+      el.goalBar.style.width = `${pct}%`;
+      $(".bar").setAttribute("aria-valuenow", String(pct));
+    };
+
+    const iconFor = (type) => {
+      if(type === "smoke") return "var(--warn)";
+      if(type === "craving") return "var(--accent)";
+      return "rgba(191,255,232,.75)";
+    };
+
+    const titleFor = (e) => {
+      if(e.type === "smoke") return `Fumé ×${e.qty || 1}`;
+      if(e.type === "craving") return `Antojo (int. ${e.intensity || 6}/10)`;
+      return "Nota";
+    };
+
+    const subtitleFor = (e) => {
+      const currency = state.settings.currency;
+      const when = `${e.date} · ${e.time}`;
+      const cost = e.cost > 0 ? ` · ${formatMoney(e.cost, currency)}` : "";
+      const trig = e.trigger ? ` · ${e.trigger}` : "";
+      return when + cost + trig;
+    };
+
+    const renderList = () => {
+      const filter = state.ui.filter || "today";
+      const key = todayKey();
+
+      const entries = state.entries
+        .slice()
+        .sort((a,b)=> (b.dtISO || "").localeCompare(a.dtISO || "")) // newest first
+        .filter(e => filter === "all" ? true : (e.date === key));
+
+      el.list.innerHTML = "";
+
+      if(entries.length === 0){
+        const empty = document.createElement("div");
+        empty.className = "entry";
+        empty.innerHTML = `
+          <div class="entryMain">
+            <div class="entryTop">
+              <span class="badge"><i style="background: rgba(234,247,243,.35); box-shadow:0 0 0 6px rgba(234,247,243,.08)"></i> Sin registros</span>
+              <div class="meta">Empieza con “+ Antojo ahora” cuando aparezca la urgencia (aunque no fumes).</div>
+            </div>
+            <div class="note">Sugerencia: anota el desencadenante (café, estrés, salida, etc.). Con 7–10 registros ya verás patrones.</div>
+          </div>
+          <div class="entryActions"></div>
+        `;
+        el.list.appendChild(empty);
+        return;
+      }
+
+      for(const e of entries){
+        const item = document.createElement("div");
+        item.className = "entry";
+        item.dataset.id = e.id;
+
+        const dotColor = iconFor(e.type);
+        const badgeText = titleFor(e);
+        const meta = subtitleFor(e);
+
+        item.innerHTML = `
+          <div class="entryMain">
+            <div class="entryTop">
+              <span class="badge"><i style="background:${dotColor}; box-shadow:0 0 0 6px rgba(33,199,168,.12)"></i> ${escapeHTML(badgeText)}</span>
+              <div class="meta">${escapeHTML(meta)}</div>
+            </div>
+            <div class="note">${escapeHTML(e.note || "—")}</div>
+          </div>
+          <div class="entryActions">
+            <button class="iconBtn" type="button" data-act="edit" aria-label="Editar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 20h9" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5Z" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button class="iconBtn" type="button" data-act="del" aria-label="Eliminar">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M10 11v6M14 11v6" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linecap="round"/>
+                <path d="M6 7l1 14h10l1-14" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M9 7V4h6v3" stroke="rgba(234,247,243,.9)" stroke-width="2" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+        `;
+
+        el.list.appendChild(item);
+      }
+    };
+
+    const escapeHTML = (s) => String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+
+    // Delegate actions
+    el.list.addEventListener("click", (ev)=>{
+      const btn = ev.target.closest("button[data-act]");
+      if(!btn) return;
+      const act = btn.dataset.act;
+      const item = ev.target.closest(".entry");
+      const id = item?.dataset?.id;
+      if(!id) return;
+
+      const idx = state.entries.findIndex(x => x.id === id);
+      if(idx < 0) return;
+
+      if(act === "del"){
+        const ok = confirm("¿Eliminar este registro?");
+        if(!ok) return;
+        lastDeleted = state.entries.splice(idx, 1)[0];
+        save(state);
+        render();
+        toast("Eliminado", "Puedes recuperar el último con “Deshacer”.");
+      }
+
+      if(act === "edit"){
+        const e = state.entries[idx];
+        // Simple edit via prompts (single-file prototype)
+        const newTrigger = prompt("Desencadenante / Contexto:", e.trigger || "");
+        if(newTrigger === null) return;
+        const newNote = prompt("Nota:", e.note || "");
+        if(newNote === null) return;
+
+        if(e.type === "smoke"){
+          const newQty = prompt("Cantidad (cigarrillos):", String(e.qty || 1));
+          if(newQty === null) return;
+          const q = Math.max(1, Number(newQty || 1));
+          e.qty = q;
+          const newCost = prompt("Gasto (opcional):", String(e.cost || 0));
+          if(newCost === null) return;
+          e.cost = Math.max(0, Number(newCost || 0));
+        }
+        if(e.type === "craving"){
+          const newInt = prompt("Intensidad (1-10):", String(e.intensity || 6));
+          if(newInt === null) return;
+          e.intensity = Math.min(10, Math.max(1, Number(newInt || 6)));
+        }
+
+        e.trigger = (newTrigger || "").trim();
+        e.note = (newNote || "").trim();
+        save(state);
+        render();
+        toast("Actualizado", "Registro editado.");
+      }
+    });
+
+    const renderSettings = () => {
+      el.currency.value = state.settings.currency || "USD";
+      el.dailyGoal.value = state.settings.dailyGoal ? String(state.settings.dailyGoal) : "";
+      el.packPrice.value = state.settings.packPrice ? String(state.settings.packPrice) : "";
+      el.cigsPerPack.value = state.settings.cigsPerPack ? String(state.settings.cigsPerPack) : "20";
+    };
+
+    const render = () => {
+      renderSettings();
+      renderStats();
+      renderList();
+      updateOfflineUI();
+    };
+
+    // ---------- Reveal on scroll ----------
+    const io = new IntersectionObserver((entries)=>{
+      for(const en of entries){
+        if(en.isIntersecting){
+          en.target.classList.add("in");
+          io.unobserve(en.target);
+        }
+      }
+    }, { threshold: 0.12 });
+
+    $$(".reveal").forEach((n)=> io.observe(n));
+
+    // ---------- Init ----------
+    (function init(){
+      // set date/time defaults
+      setDefaultsNow();
+      updateTypeUI();
+
+      // hide install pill unless prompt available
+      $("#pillInstall").style.display = "none";
+
+      render();
+
+      // small guidance if first run
+      const firstRun = !load();
+      if(firstRun){
+        toast("Bienvenido/a a Brújula", "Recomendación: define tu “inicio” y una meta diaria (reducción gradual).");
+      }
+    })();
+  </script>
+</body>
+</html>
